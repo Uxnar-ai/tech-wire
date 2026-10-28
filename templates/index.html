@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tech wire · 今日技术风向</title>
+<style>
+  :root{
+    --bg:#0a0c0f; --panel:#0f1318; --line:#1c232b; --line2:#242e39;
+    --fg:#dfe6ee; --dim:#7c8896; --faint:#525c68;
+    --hn:#ff8b3d; --lob:#e05252; --arx:#b57bff; --new:#35d399;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--fg);
+    font-family:ui-monospace,"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+    font-size:13.5px; line-height:1.55;
+    background-image:radial-gradient(circle at 50% -20%,rgba(86,200,245,.06),transparent 50%);
+    background-attachment:fixed;
+  }
+  .wrap{max-width:1240px;margin:0 auto;padding:44px 22px 70px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+         gap:16px;border-bottom:1px solid var(--line);padding-bottom:18px}
+  h1{margin:0;font-size:23px;font-weight:600;letter-spacing:-.4px}
+  h1 b{color:#56c8f5;font-weight:600}
+  .sub{margin:6px 0 0;color:var(--dim);font-size:12px}
+  .stat{text-align:right;font-size:12px;color:var(--dim)}
+  .stat b{color:var(--fg);font-weight:600;font-size:14px}
+  .stat .nw{color:var(--new)}
+  .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:26px}
+  .col{min-width:0}
+  .ch{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;
+      border-bottom:1px solid var(--line)}
+  .ch .bar{width:3px;height:13px;border-radius:2px}
+  .ch.hn .bar{background:var(--hn)} .ch.lobsters .bar{background:var(--lob)} .ch.arxiv .bar{background:var(--arx)}
+  .ch .name{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#aab4c0}
+  .ch .cnt{margin-left:auto;color:var(--faint);font-size:11px}
+  ol{list-style:none;margin:0;padding:0}
+  li{padding:9px 0 10px;border-bottom:1px solid rgba(28,35,43,.75)}
+  li:last-child{border-bottom:none}
+  .row{display:flex;gap:8px;align-items:baseline}
+  .idx{color:#414a55;font-size:11px;flex:0 0 18px;text-align:right;font-variant-numeric:tabular-nums}
+  a.t{color:var(--fg);text-decoration:none;font-size:13px;line-height:1.45;word-break:break-word}
+  a.t:hover{color:#8fd8ff;text-decoration:underline}
+  .m{display:flex;flex-wrap:wrap;gap:9px;margin-top:4px;padding-left:26px;
+     color:var(--faint);font-size:11px;align-items:center}
+  .m .sc{color:#8a96a4}
+  .m a{color:#5d6874;text-decoration:none}
+  .m a:hover{color:#8fd8ff}
+  .tag{color:#5d6874;border:1px solid var(--line2);border-radius:3px;padding:0 4px;font-size:10px}
+  .new{color:var(--new);border:1px solid rgba(53,211,153,.35);border-radius:3px;
+       padding:0 4px;font-size:10px;letter-spacing:.05em}
+  .abs{color:#6a7583;font-size:11.5px;margin:5px 0 0 26px;line-height:1.5;
+       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--line);
+         color:var(--faint);font-size:11.5px;display:flex;justify-content:space-between;
+         flex-wrap:wrap;gap:8px}
+  .err{color:#c9756f;font-size:11px;margin-top:6px}
+  .arch{margin-top:26px;border-top:1px solid var(--line);padding-top:16px}
+  .arch-h{color:var(--faint);font-size:11px;letter-spacing:.06em;margin-bottom:8px}
+  .strip{display:flex;gap:4px;align-items:flex-end;height:38px}
+  .strip a{flex:1;background:#1f2833;border-radius:2px 2px 0 0;min-height:3px;display:block}
+  .strip a:hover{background:#3d8fb8}
+  .strip-l{display:flex;gap:4px;margin-top:5px;color:#3f4954;font-size:9.5px}
+  .strip-l span{flex:1;text-align:center}
+  @media (max-width:900px){ .cols{grid-template-columns:1fr} .wrap{padding:30px 16px 50px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>tech <b>wire</b></h1>
+      <p class="sub">Hacker News · Lobsters · arXiv cs.AI —— 每 30 分钟同步一次 ·
+        <a href="/topics" style="color:#6ea8d0;text-decoration:none">关键词</a> ·
+        <a href="/day/{{ today }}" style="color:#6ea8d0;text-decoration:none">今日存档</a></p>
+    </div>
+    <div class="stat">
+      <b>{{ st.total }}</b> 条在榜 · 新增 <b class="nw">{{ st.new_count }}</b><br>
+      最后同步 {{ st.last_refresh }}（{{ st.ago }}）
+    </div>
+  </header>
+
+  <div class="cols">
+    {% for key, label in [('hn','Hacker News'), ('lobsters','Lobsters'), ('arxiv','arXiv cs.AI')] %}
+    <div class="col">
+      <div class="ch {{ key }}">
+        <span class="bar"></span>
+        <span class="name">{{ label }}</span>
+        <span class="cnt">{{ st.groups[key]|length }}</span>
+      </div>
+      <ol>
+        {% for it in st.groups[key][:18] %}
+        <li>
+          <div class="row">
+            <span class="idx">{{ loop.index }}</span>
+            <a class="t" href="{{ it.url }}" target="_blank" rel="noopener noreferrer">{{ it.title }}</a>
+          </div>
+          <div class="m">
+            {% if it.is_new %}<span class="new">NEW</span>{% endif %}
+            {% if it.score %}<span class="sc">▲ {{ it.score }}</span>{% endif %}
+            {% if it.comments %}<a href="{{ it.discuss }}">{{ it.comments }} 评论</a>{% endif %}
+            {% if it.meta.tags %}{% for t in it.meta.tags %}<span class="tag">{{ t }}</span>{% endfor %}{% endif %}
+            {% if it.meta.authors %}<span>{{ it.meta.authors|join(', ') }}</span>{% endif %}
+          </div>
+          {% if it.meta.abstract %}<p class="abs">{{ it.meta.abstract }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endfor %}
+  </div>
+
+  <footer>
+    <span>数据来自各站公开 API · 每域名每轮 1 次请求 · 不抓正文与图片</span>
+    <span>
+      {% if st.errors %}<span class="err">本轮失败源：{{ st.errors|join('；') }}</span>{% else %}本轮全部源正常{% endif %}
+    </span>
+  </footer>
+
+  <div class="arch">
+    <div class="arch-h">近 14 天入库量（点柱子看当天存档）</div>
+    <div class="strip">
+      {% for d in series|reverse %}
+      <a href="/day/{{ d.day }}" title="{{ d.day }} · {{ d.n }} 条"
+         style="height:{{ 4 + (d.n / peak) * 30 }}px"></a>
+      {% endfor %}
+    </div>
+    <div class="strip-l">{% for d in series|reverse %}<span>{{ d.day[5:] }}</span>{% endfor %}</div>
+  </div>
+</div>
+</body>
+</html>

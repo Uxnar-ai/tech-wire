@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tech wire · {{ day }} 存档</title>
+<style>
+  :root{
+    --bg:#0a0c0f; --panel:#0f1318; --line:#1c232b; --line2:#242e39;
+    --fg:#dfe6ee; --dim:#7c8896; --faint:#525c68;
+    --hn:#ff8b3d; --lob:#e05252; --arx:#b57bff; --new:#35d399;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:ui-monospace,"JetBrains Mono","SF Mono",Menlo,Consolas,monospace;
+    font-size:13.5px;line-height:1.55;
+    background-image:radial-gradient(circle at 50% -20%,rgba(86,200,245,.06),transparent 50%);
+    background-attachment:fixed;}
+  .wrap{max-width:1240px;margin:0 auto;padding:44px 22px 70px}
+  header{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;
+         gap:16px;border-bottom:1px solid var(--line);padding-bottom:18px}
+  h1{margin:0;font-size:23px;font-weight:600;letter-spacing:-.4px}
+  h1 b{color:#56c8f5;font-weight:600}
+  .sub{margin:6px 0 0;color:var(--dim);font-size:12px}
+  .sub a{color:#6ea8d0;text-decoration:none}
+  .sub a:hover{color:#8fd8ff;text-decoration:underline}
+  .stat{text-align:right;font-size:12px;color:var(--dim)}
+  .stat b{color:var(--fg);font-weight:600;font-size:14px}
+  .strip{display:flex;gap:4px;align-items:flex-end;margin-top:20px;height:44px}
+  .strip a{flex:1;background:var(--line);border-radius:2px 2px 0 0;min-height:3px;
+           text-decoration:none;position:relative;display:block}
+  .strip a.on{background:#56c8f5}
+  .strip a:hover{background:#3d8fb8}
+  .strip-l{display:flex;gap:4px;margin-top:6px;color:var(--faint);font-size:10px}
+  .strip-l span{flex:1;text-align:center}
+  .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:26px}
+  .ch{display:flex;align-items:center;gap:8px;margin-bottom:10px;padding-bottom:8px;
+      border-bottom:1px solid var(--line)}
+  .ch .bar{width:3px;height:13px;border-radius:2px}
+  .ch.hn .bar{background:var(--hn)} .ch.lobsters .bar{background:var(--lob)} .ch.arxiv .bar{background:var(--arx)}
+  .ch .name{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#aab4c0}
+  .ch .cnt{margin-left:auto;color:var(--faint);font-size:11px}
+  ol{list-style:none;margin:0;padding:0}
+  li{padding:9px 0 10px;border-bottom:1px solid rgba(28,35,43,.75)}
+  li:last-child{border-bottom:none}
+  .row{display:flex;gap:8px;align-items:baseline}
+  .idx{color:#414a55;font-size:11px;flex:0 0 18px;text-align:right;font-variant-numeric:tabular-nums}
+  a.t{color:var(--fg);text-decoration:none;font-size:13px;line-height:1.45;word-break:break-word}
+  a.t:hover{color:#8fd8ff;text-decoration:underline}
+  .m{display:flex;flex-wrap:wrap;gap:9px;margin-top:4px;padding-left:26px;
+     color:var(--faint);font-size:11px;align-items:center}
+  .m .sc{color:#8a96a4}
+  .m a{color:#5d6874;text-decoration:none}
+  .m a:hover{color:#8fd8ff}
+  .tag{color:#5d6874;border:1px solid var(--line2);border-radius:3px;padding:0 4px;font-size:10px}
+  .abs{color:#6a7583;font-size:11.5px;margin:5px 0 0 26px;line-height:1.5;
+       display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .empty{color:var(--faint);font-size:12px;padding:20px 0}
+  nav{margin-top:38px;display:flex;gap:16px;font-size:12px;border-top:1px solid var(--line);padding-top:14px}
+  nav a{color:#6ea8d0;text-decoration:none}
+  nav a:hover{color:#8fd8ff;text-decoration:underline}
+  nav .sp{margin-left:auto;color:var(--faint)}
+  @media (max-width:900px){ .cols{grid-template-columns:1fr} .wrap{padding:30px 16px 50px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>tech <b>wire</b> · {{ day }}</h1>
+      <p class="sub">这一天首次出现在榜上的全部条目，已按分数排好 · <a href="/">回到今日</a> · <a href="/topics">关键词</a></p>
+    </div>
+    <div class="stat"><b>{{ total }}</b> 条入库<br>近 14 天峰值 {{ peak }} 条/天</div>
+  </header>
+
+  <div class="strip">
+    {% for d in series|reverse %}
+    <a href="/day/{{ d.day }}" class="{% if d.day == day %}on{% endif %}"
+       style="height:{{ 6 + (d.n / peak) * 38 }}px"
+       title="{{ d.day }} · {{ d.n }} 条"></a>
+    {% endfor %}
+  </div>
+  <div class="strip-l">
+    {% for d in series|reverse %}<span>{{ d.day[5:] }}</span>{% endfor %}
+  </div>
+
+  <div class="cols">
+    {% for key, label in [('hn','Hacker News'), ('lobsters','Lobsters'), ('arxiv','arXiv cs.AI')] %}
+    <div>
+      <div class="ch {{ key }}">
+        <span class="bar"></span><span class="name">{{ label }}</span>
+        <span class="cnt">{{ groups[key]|length }}</span>
+      </div>
+      <ol>
+        {% for it in groups[key][:40] %}
+        <li>
+          <div class="row">
+            <span class="idx">{{ loop.index }}</span>
+            <a class="t" href="{{ it.url }}" target="_blank" rel="noopener noreferrer">{{ it.title }}</a>
+          </div>
+          <div class="m">
+            {% if it.score %}<span class="sc">▲ {{ it.score }}</span>{% endif %}
+            {% if it.comments %}<a href="{{ it.discuss }}">{{ it.comments }} 评论</a>{% endif %}
+            {% for t in it.meta.tags or [] %}<span class="tag">{{ t }}</span>{% endfor %}
+            {% if it.meta.authors %}<span>{{ it.meta.authors|join(', ') }}</span>{% endif %}
+          </div>
+          {% if it.meta.abstract %}<p class="abs">{{ it.meta.abstract }}</p>{% endif %}
+        </li>
+        {% else %}
+        <li class="empty">这一天这个源没有新条目</li>
+        {% endfor %}
+      </ol>
+    </div>
+    {% endfor %}
+  </div>
+
+  <nav>
+    <a href="/day/{{ prev_day }}">← {{ prev_day }}</a>
+    <a href="/day/{{ next_day }}">{{ next_day }} →</a>
+    <span class="sp">存档按首次入库时间归日（服务器本地时区）</span>
+  </nav>
+</div>
+</body>
+</html>
