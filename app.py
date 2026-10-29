@@ -13,7 +13,8 @@ import xml.etree.ElementTree as ET
 from datetime import date, datetime, timedelta
 
 import requests
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
+from markupsafe import Markup
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.join(BASE, "wire.db")
@@ -326,6 +327,86 @@ def topics_view():
     series = day_series(14)
     return render_template("topics.html", tp=topics(7), series=series,
                            peak=max([x["n"] for x in series] or [1]))
+
+
+# ---------- 全文搜索 ----------
+
+@app.template_filter("hl")
+def hl(text, q):
+    """把查询词在文本里标黄，先转义再插 mark，避免 XSS。"""
+    out = (str(text or "").replace("&", "&amp;")
+           .replace("<", "&lt;").replace(">", "&gt;"))
+    for tok in [t for t in (q or "").split() if t]:
+        out = re.sub("(" + re.escape(tok) + ")", r"<mark>\1</mark>", out, flags=re.I)
+    return Markup(out)
+
+
+def _whole(tok, text):
+    """整词命中判断：前后不能紧挨字母数字，避免 rust 命中 trusts。"""
+    return re.search(r"(?<![a-z0-9])" + re.escape(tok.lower()) + r"(?![a-z0-9])", text) is not None
+
+
+def search_items(q, source="", days=0, limit=80):
+    """跨全部历史搜标题与摘要，空格分词按 AND 匹配。
+
+    排序：标题命中权重 3、摘要命中权重 1，再加上热度分（封顶 400）的零头，
+    最后按首次出现时间兜底，保证同分时新的在前。
+    """
+    toks = [t for t in (q or "").split() if t]
+    if not toks:
+        return [], 0, []
+
+    where, params = [], []
+    for t in toks:
+        where.append("(title LIKE ? OR meta LIKE ?)")
+        params += [f"%{t}%", f"%{t}%"]
+    if source in ("hn", "lobsters", "arxiv"):
+        where.append("source = ?")
+        params.append(source)
+    if days in (7, 30, 90):
+        where.append("first_seen >= ?")
+        params.append(int(time.time()) - days * 86400)
+
+    sql = "SELECT * FROM items WHERE " + " AND ".join(where)
+    with db() as cx:
+        rows = cx.execute(sql, params).fetchall()
+
+    hits = []
+    for r in rows:
+        it = dict(r)
+        it["meta"] = json.loads(it["meta"] or "{}")
+        title_l = (it["title"] or "").lower()
+        abs_l = (it["meta"].get("abstract") or "").lower()
+        # 整词命中额外加分：搜 rust 时 "Rust ecosystem" 要排在 "trusts" 前面
+        whole = sum(1 for t in toks if _whole(t, title_l))
+        whole_abs = sum(1 for t in toks if _whole(t, abs_l))
+        it["hit"] = (sum(3 for t in toks if t.lower() in title_l)
+                     + sum(1 for t in toks if t.lower() in abs_l)
+                     + whole * 2 + whole_abs * 0.5
+                     + min(it["score"] or 0, 400) / 200.0)
+        it["seen_day"] = datetime.fromtimestamp(it["first_seen"]).strftime("%Y-%m-%d")
+        hits.append(it)
+
+    hits.sort(key=lambda x: (-x["hit"], -x["first_seen"]))
+    return hits[:limit], len(rows), toks
+
+
+@app.route("/search")
+def search_view():
+    q = (request.args.get("q") or "").strip()[:80]
+    source = request.args.get("src") or ""
+    try:
+        days = int(request.args.get("days") or 0)
+    except ValueError:
+        days = 0
+    if days not in (7, 30, 90):
+        days = 0
+    hits, total, toks = search_items(q, source, days)
+    series = day_series(14)
+    return render_template("search.html", q=q, hits=hits, total=total, toks=toks,
+                           source=source, days=days, series=series,
+                           peak=max([x["n"] for x in series] or [1]))
+
 
 
 init_db()
