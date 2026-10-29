@@ -264,12 +264,14 @@ def day_items(day):
     return out, len(rows)
 
 
-def topics(days=7, limit=40):
-    """最近 N 天标题里的高频词。纯本地分词，不调用任何外部服务。"""
-    since = int(time.time()) - days * 86400
+def word_counts(days=7, offset=0):
+    """统计窗口 [now-(days+offset)d, now-offset*d) 内的标题词频。"""
+    end = int(time.time()) - offset * 86400
+    start = end - days * 86400
     with db() as cx:
-        rows = cx.execute("SELECT title, url, source FROM items WHERE first_seen >= ?",
-                          (since,)).fetchall()
+        rows = cx.execute(
+            "SELECT title, url, source FROM items WHERE first_seen >= ? AND first_seen < ?",
+            (start, end)).fetchall()
     counter, sample = {}, {}
     for r in rows:
         for w in WORD.findall(r["title"] or ""):
@@ -279,15 +281,28 @@ def topics(days=7, limit=40):
             counter[w] = counter.get(w, 0) + 1
             sample.setdefault(w, {"title": r["title"], "url": r["url"],
                                   "source": r["source"]})
+    return counter, sample, len(rows)
+
+
+def topics(days=7, limit=40):
+    """最近 N 天的高频词，并与上一个 N 天对比出升降。纯本地统计。"""
+    counter, sample, scanned = word_counts(days, 0)
+    prev_counter, _, scanned_prev = word_counts(days, days)
     ranked = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))
-    out = []
+    out, rising = [], []
     for w, n in ranked:
         if n < 2:                     # 只出现一次的词没有「热度」可言
             break
-        out.append({"word": w, "n": n, **sample[w]})
+        before = prev_counter.get(w, 0)
+        item = {"word": w, "n": n, "prev": before, "delta": n - before, **sample[w]}
+        out.append(item)
+        if item["delta"] > 0 and before > 0:   # 上一窗口也有量才算「上升」，首次出现归到「新」
+            rising.append(item)
         if len(out) >= limit:
             break
-    return {"words": out, "scanned": len(rows), "days": days}
+    return {"words": out, "scanned": scanned, "scanned_prev": scanned_prev,
+            "days": days, "rising": rising[:8],
+            "new_words": [x for x in out if x["prev"] == 0][:8]}
 
 
 @app.route("/day/<day>")
